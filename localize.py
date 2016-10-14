@@ -5,165 +5,230 @@ import os
 import commands
 import time
 
-transfilename="trans.txt"
+transfilename = 'trans.txt'
 
-baseLocalize="Localizable.strings"
+baseLocalize = "Localizable.strings"
 
-fileSuffix=".m";#文件后缀名
-localizeStrPrefix="CustomString(@";#对应.m的使用格式前缀
-findReg="CustomString\(@(\".*?\")\)";#提取key的正则
+special_char_reg="\\.*?[]*()"
 
-projectname="./12"
+# 文件后缀名
+fileSuffix = ".m"
+# 对应.m的使用格式前缀
+localizeStrPrefix = "CustomString(@"
+# 提取key的正则
+findReg = "CustomString\(@(\".*?\")\)"
 
-localizeDic={
-    'en':(2,"English",projectname+"/en.lproj/Localizable.strings"),
-    'zh':(3,"Chinese",projectname+"/zh-Hans.lproj/Localizable.strings")
-}
+projectname = "./12"
+
+localizeDic = dict( en=(2, "English", projectname + "/en.lproj/Localizable.strings"),
+                    zh=(3, "Chinese", projectname + "/zh-Hans.lproj/Localizable.strings") )
+
 
 def timestr():
-    return time.strftime('%Y:%m:%d %H:%M:%S',time.localtime(time.time()))
+    return time.strftime( '%Y:%m:%d %H:%M:%S', time.localtime( time.time( ) ) )
 
-def strTofile(str, filename, isAppend = 1):
-    operator='>'
+
+def str_tofile(str, filename, isAppend=1):
+    operator = '>'
     if isAppend == 1:
-        operator='>>'
-    commandStr="echo \"%s\" %s %s" % (str, operator, filename)
-    os.popen(commandStr)
+        operator = '>>'
+    tmp=str.replace('"','\\"')
+    # print "transfer after " + tmp
+    commandStr = "echo \"%s\" %s %s" % (str.replace('"','\\"'), operator, filename)
+    os.popen( commandStr )
+
+
+def trans_str(str, char):
+    return str.replace(char, '\\'+char)
+
+
+def regex_relugar_str(str):
+    for char in list(special_char_reg):
+        str=trans_str(str, char)
+    return str
 
 def log(str, needtime=1):
-
-    logstr=" exec command " + str +" "
+    logstr = " exec command %s " % (str)
     if needtime == 1:
-        logstr = timestr() + logstr;
+        logstr = timestr( ) + logstr;
 
-    strTofile(logstr, "localize.log")
+    str_tofile( logstr, "localize.log" )
+
 
 def warning(str):
-    strTofile(str, "warning.txt")
+    str_tofile( str, "warning.txt" )
 
-def fileExist(path):
-    if os.path.exists(transfilename) == False:
-        print "transfile %s not existed" %(transfilename)
-        exit(-1)
+
+def file_exist(path):
+    if os.path.exists( transfilename ) == False:
+        print "transfile %s not existed" % (transfilename)
+        exit( -1 )
+
 
 def execshell(commandStr):
-    (status,ouput)=commands.getstatusoutput(commandStr)
-    if status != 0:
-        log(commandStr + "failed")
-    log(commandStr + " output " +ouput)
+    # print commandStr
+    (status, ouput) = commands.getstatusoutput( commandStr )
+    log( "%s \n status:%d\t output:%s"% (commandStr, status, ouput))
     return (status, ouput)
 
-def generateString():
+
+def generate_string():
     commandStr = "find `pwd` -iname '*%s' -exec grep -r -n '%s' '{}' \; > /tmp/input.txt" % (fileSuffix, localizeStrPrefix)
-    execshell(commandStr)
+    execshell( commandStr )
+
 
 def clear():
-    execshell('rm -rf /tmp/input.txt')
+    execshell( 'rm -rf /tmp/input.txt' )
 
-def generateBaseLocalizeString():
 
-    generateString()
+def generate_base_localize_string():
+    generate_string( )
 
-    out=open(baseLocalize,'w+')
-    filename=""
-    allLocalizeKey=[];
-    for line in open("input.txt"):
-        searchRegStr='[\/]([A-z\s]+%s):(\d+).*%s' % (fileSuffix, findReg);
-        m=re.search(searchRegStr,line)
+    out = open( baseLocalize, 'w+' )
+    filename = ""
+    allLocalizeKey = [];
+    for line in open( "/tmp/input.txt" ):
+        searchRegStr = '[\/]([A-z\s]+%s):(\d+).*%s' % (fileSuffix, findReg);
+        m = re.search( searchRegStr, line )
 
         if m == None:
             continue
 
-        tmpfilename=m.group(1)
-        linenumber=m.group(2)
-        reloca=m.group(3)
-        if tmpfilename!=filename:
-            out.write("\n\n")
-            filename=tmpfilename
-            out.write("/*****************************"+filename+"*********************************/\n")
+        tmpfilename = m.group( 1 )
+        linenumber = m.group( 2 )
+        reloca = m.group( 3 )
+        if tmpfilename != filename:
+            out.write( "\n\n" )
+            filename = tmpfilename
+            out.write( "/*****************************" + filename + "*********************************/\n" )
 
-        newline= "%s=%s; //line:%s\n" % (reloca, reloca, linenumber);
+        newline = "%s=%s; //line:%s\n" % (reloca, reloca, linenumber);
 
         if reloca in allLocalizeKey:
-            newline="//"+newline
+            newline = "//" + newline
         else:
-            allLocalizeKey.append(reloca)
-        out.write(newline)
+            allLocalizeKey.append( reloca )
 
-    out.close()
+        out.write( newline )
+    out.close( )
 
-def generateAllLocalizeString():
-    generateBaseLocalizeString()
 
-    for value in localizeDic.values():
-        path=value[2]
-        commandStr="cp -R -f %s %s" % (baseLocalize, path)
-        execshell(commandStr)
+def generate_all_localize_string():
+    generate_base_localize_string( )
 
-def lanauageVale(key, index):
+    for value in localizeDic.values( ):
+        path = value[2]
+        commandStr = "cp -R -f %s %s" % (baseLocalize, path)
+        execshell( commandStr )
 
-    fileExist(transfilename)
+# 从文件获取翻译 格式 k \t l \t l
+def  value_for_key(str, key):
 
-    commandStr="grep -w \"%s\" %s | awk -F'\t' '{ print $1,\",\",$%d } '" % (key, transfilename, index)
-    (status, output) = execshell(commandStr)
+    reg_str = '%s' % (regex_relugar_str(key));
 
-    if not output:
-        return ""
-    if output.__len__() < 1:
-        return ""
-    if status != 0:
-        return ""
+    for i  in range(len(localizeDic.keys())):
+        reg_str +='\t(".*?")'
 
-    output=tuple(eval(output))
+    return re.search(reg_str, str)
 
-    # print "\"%s\" equal \"%s\" %d" %(key, output[0], key==output[0]);
-    if key == output[0]:
-        return output[1]
-    return ""
-    # print "originkey is "+output[0]
-    # return output[1]
 
-def replaceString(filename, keyIndex, language):
-
-    fileExist(filename)
-
-    for line in open(filename):
-        key=re.search('"(.*?)"=("[0-z\s]+")', line)
-
-        #FIXME: no key error
-        if not key:
-            continue;
-
-        key = key.group(1)
-        transLanguage=lanauageVale(key, keyIndex)
-
-        if not transLanguage :
-            warning("no key for line "+line)
-            continue
-
-        if transLanguage.__len__() != 0:
-            print transLanguage
-
-            commandStr="sed -i .backup 's/='%s';/='%s';/g' %s" % (key, transLanguage, filename)
-            execshell(commandStr)
-        else:
-            warning("%s translate to %s is not compelete" % (key, language));
-    else:
-        warning("no key for line "+line)
 
 def translate():
+    generate_all_localize_string()
 
-    generateAllLocalizeString()
+    execshell( 'rm -rf warning.txt' )
 
-    for value in localizeDic.values():
-        replaceString(value[2],value[0], value[1])
-    clear()
-#
-# generAllLocalizeString()
-# replaceString(chnLocalize, 3)
-# replaceString(enLocalize, 2)
-# clear()
+    transfile_content=open(transfilename).read()
 
-execshell('rm -rf warning.txt')
-translate()
+    for value in localizeDic.values( ):
+        out = open(value[2],'w+');
 
+        tmp_buffer=""
+        for line in open(baseLocalize):
+
+            key = line.split('=')[0]
+            match = value_for_key(transfile_content, key)
+
+            if match:
+                tmp_buffer += line.replace('='+key,'='+match.group(value[0] - 1))
+            else:
+                # FIXME: no key error
+                tmp_buffer += line
+
+        out.write(tmp_buffer)
+        out.close()
+
+    clear( )
+
+
+def backup():
+    generate_string()
+
+    out = open( "/tmp/backup.txt", 'w+' )
+    all_language = ""
+    for value in localizeDic.values( ):
+        language = value[1]
+        all_language = '%s\t"%s"' % (all_language, language)
+
+    for line in open( "/tmp/input.txt" ):
+        searchRegStr = '[\/]([A-z\s]+%s):(\d+).*%s' % (fileSuffix, findReg);
+        m = re.search( searchRegStr, line )
+
+        if not m:
+            continue
+
+        filename = m.group( 1 )
+        reloca = m.group( 3 )
+
+        newline = "%s\t%s%s\n" % (filename, reloca, all_language);
+        out.write( newline )
+    out.close( )
+
+
+    lastfilename='backup'
+
+    for value in localizeDic.values( ):
+        out = open( "/tmp/%s.txt" %(value[1]), 'w')
+        path = value[2]
+
+        res = ""
+        file_content = open(path).read()
+
+        for line in open("/tmp/%s.txt" %(lastfilename)):
+            key = line.split('\t')[1]
+
+            localize_language = localize_language_value(file_content, key)
+
+            if localize_language:
+
+                res += line.replace(value[1],localize_language);
+            else:
+
+                warning_str = "%s 未翻译成 %s" %(key, value[1]);
+                warning(str);
+                res += line
+
+        out.write(res)
+        out.close()
+        lastfilename=value[1]
+
+    os.popen('mv %s backup.txt' % (out.name))
+    print 'backup to backup.txt done'
+
+
+def localize_language_value(str, key):
+
+    reg='%s.*?=.*?"(.*?)"' % (regex_relugar_str(key))
+    match=re.search(reg,str)
+
+    # print str
+
+    if not match:
+        return ""
+    return match.group(1)
+
+
+
+translate( )
+# print "compeleted"
+# backup()
