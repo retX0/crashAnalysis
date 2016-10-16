@@ -71,6 +71,19 @@ def execshell(commandStr):
     log( "%s \n status:%d\t output:%s"% (commandStr, status, ouput))
     return (status, ouput)
 
+def execeute_regex(str, reg, group_index):
+    match = re.search(reg, str)
+
+    if not match :
+        return None
+
+    try:
+        match_string = match.group(group_index)
+        if not match_string:
+            return None
+        return match_string
+    except:
+        return None
 
 def generate_string():
     commandStr = "find `pwd` -iname '*%s' -exec grep -r -n '%s' '{}' \; > /tmp/input.txt" % (fileSuffix, localizeStrPrefix)
@@ -152,8 +165,9 @@ def translate():
             if match:
                 tmp_buffer += line.replace('='+key,'='+match.group(value[0] - 1))
             else:
-                # FIXME: no key error
-                tmp_buffer += line
+                tmp_buffer += line.replace('='+key,'=""')
+                warning_str = "%s 未翻译成 %s" %(key, value[1]);
+                warning(str);
 
         out.write(tmp_buffer)
         out.close()
