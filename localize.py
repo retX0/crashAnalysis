@@ -16,7 +16,7 @@ fileSuffix = ".m"
 # 对应.m的使用格式前缀
 localizeStrPrefix = "CustomString(@"
 # 提取key的正则
-findReg = "CustomString\(@(\".*?\")\)"
+findReg = '.*?CustomString\(@(".*?")\).*?'
 
 projectname = "./12"
 
@@ -66,7 +66,6 @@ def file_exist(path):
 
 
 def execshell(commandStr):
-    # print commandStr
     (status, ouput) = commands.getstatusoutput( commandStr )
     log( "%s \n status:%d\t output:%s"% (commandStr, status, ouput))
     return (status, ouput)
@@ -101,28 +100,39 @@ def generate_base_localize_string():
     filename = ""
     allLocalizeKey = [];
     for line in open( "/tmp/input.txt" ):
-        searchRegStr = '[\/]([A-z\s]+%s):(\d+).*%s' % (fileSuffix, findReg);
+        searchRegStr = '[\/]([A-z\s]+%s):(\d+).*' % (fileSuffix, findReg);
         m = re.search( searchRegStr, line )
 
-        if m == None:
+        if not m:
             continue
 
         tmpfilename = m.group( 1 )
         linenumber = m.group( 2 )
-        reloca = m.group( 3 )
+
+        m = re.findall(findReg, line)
+
+        if not m:
+            continue
+
         if tmpfilename != filename:
             out.write( "\n\n" )
             filename = tmpfilename
             out.write( "/*****************************" + filename + "*********************************/\n" )
 
-        newline = "%s=%s; //line:%s\n" % (reloca, reloca, linenumber);
+        reloca = m.group( 3 )
 
-        if reloca in allLocalizeKey:
-            newline = "//" + newline
-        else:
-            allLocalizeKey.append( reloca )
 
-        out.write( newline )
+        for value in m:
+
+            newline = "%s=%s; //line:%s\n" % (value, value,linenumber);
+
+            if value in allLocalizeKey:
+                newline = "//" + newline
+            else:
+                allLocalizeKey.append( value )
+
+            out.write( newline )
+
     out.close( )
 
 
@@ -186,16 +196,29 @@ def backup():
 
     for line in open( "/tmp/input.txt" ):
         searchRegStr = '[\/]([A-z\s]+%s):(\d+).*%s' % (fileSuffix, findReg);
+
         m = re.search( searchRegStr, line )
 
         if not m:
             continue
 
         filename = m.group( 1 )
-        reloca = m.group( 3 )
 
-        newline = "%s\t%s%s\n" % (filename, reloca, all_language);
-        out.write( newline )
+        m = re.findall(findReg, line)
+        
+        if not m:
+            continue
+
+        for value in m:
+
+            newline = "%s=%s; //line:%s\n" % (value, value,linenumber);
+
+            if value in allLocalizeKey:
+                newline = "//" + newline
+            else:
+                allLocalizeKey.append( value )
+
+            out.write( newline )
     out.close( )
 
 
@@ -220,7 +243,7 @@ def backup():
 
                 warning_str = "%s 未翻译成 %s" %(key, value[1]);
                 warning(str);
-                res += line
+                res += line.replace(value[1],"未翻译");
 
         out.write(res)
         out.close()
