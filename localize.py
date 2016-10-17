@@ -18,7 +18,7 @@ localizeStrPrefix = "CustomString(@"
 # 提取key的正则
 findReg = '.*?CustomString\(@(".*?")\).*?'
 
-projectname = "./12"
+projectname = "./Demo"
 
 localizeDic = dict( en=(2, "English", projectname + "/en.lproj/Localizable.strings"),
                     zh=(3, "Chinese", projectname + "/zh-Hans.lproj/Localizable.strings") )
